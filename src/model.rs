@@ -1,5 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use serde::export::Formatter;
+use std::collections::BTreeMap;
 
 pub mod object {
     macro_rules! object_name {
@@ -49,6 +52,7 @@ pub mod object {
     object_name!(Event, "event");
     object_name!(EventType, "event_type");
     object_name!(Envelope, "envelope");
+    object_name!(List, "list");
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -566,6 +570,7 @@ pub enum Object {
     Letter(Letter),
     Check(Check),
     BankAccount(BankAccount),
+    Delete(Delete),
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -606,6 +611,58 @@ pub enum ExtraService {
 pub enum AccountType {
     Company,
     Individual,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Delete {
+    pub id: String,
+    pub deleted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LobError {
+    pub message: String,
+    pub status_code: i32,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct ListAddressesOptions {
+    limit: Option<u32>,
+    after: Option<String>,
+    before: Option<String>,
+    include: Option<Vec<ListAddressesIncludeOptions>>,
+    metadata: Option<BTreeMap<String, String>>,
+    date_created: Option<DateFilter>
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+pub enum ListAddressesIncludeOptions {
+    TotalCount,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ListResponse<T> {
+    data: Vec<T>,
+    object: object::List,
+    next_url: Option<String>,
+    previous_url: Option<String>,
+    count: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DateFilter {
+    pub gt: Option<DateTime<Utc>>,
+    pub gte: Option<DateTime<Utc>>,
+    pub lt: Option<DateTime<Utc>>,
+    pub lte: Option<DateTime<Utc>>,
+}
+
+impl fmt::Display for ListAddressesIncludeOptions {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ListAddressesIncludeOptions::TotalCount => write!(f, "total_count"),
+        }
+    }
 }
 
 // {"Y", "N", ""} <=> {Some(true), Some(false), None}
