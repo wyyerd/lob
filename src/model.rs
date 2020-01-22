@@ -618,7 +618,6 @@ pub struct Check {
     object: object::Check,
 }
 
-
 #[derive(Debug, Clone, Serialize)]
 pub struct NewCheck {
     pub description: Option<String>,
@@ -711,7 +710,6 @@ pub struct ListBankAccountOptions {
     metadata: Option<BTreeMap<String, String>>,
     date_created: Option<DateFilter>,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomEnvelope {
