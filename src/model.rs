@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use std::fmt;
 use serde::export::Formatter;
+use serde::{ser::Error, Deserialize, Serialize, Serializer};
 use std::collections::BTreeMap;
+use std::fmt;
 use std::net::IpAddr;
 
 pub mod object {
@@ -135,7 +135,7 @@ pub struct AddressVerificationComponents {
 #[derive(Debug, Clone)]
 pub enum AddressVerificationInput {
     Flat(String),
-    Components(AddressVerificationComponents)
+    Components(AddressVerificationComponents),
 }
 
 pub trait VerifyAddress {
@@ -342,7 +342,7 @@ pub struct AutocompleteAddressOptions {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub (crate) struct AutocompleteAddressOptionsQuery {
+pub(crate) struct AutocompleteAddressOptionsQuery {
     pub address_prefix: String,
     pub city: Option<String>,
     pub state: Option<String>,
@@ -350,7 +350,10 @@ pub (crate) struct AutocompleteAddressOptionsQuery {
 }
 
 impl AutocompleteAddressOptionsQuery {
-    pub fn new<S: Into<String>>(address_prefix: S, options: Option<AutocompleteAddressOptions>) -> Self {
+    pub fn new<S: Into<String>>(
+        address_prefix: S,
+        options: Option<AutocompleteAddressOptions>,
+    ) -> Self {
         let options = options.unwrap_or_default();
         AutocompleteAddressOptionsQuery {
             address_prefix: address_prefix.into(),
@@ -403,6 +406,20 @@ pub struct InternationalVerification {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InternationalVerificationInput {
+    pub recipient: Option<String>,
+    pub primary_line: String,
+    pub secondary_line: Option<String>,
+    pub city: Option<String>,
+    pub state: Option<String>,
+    pub postal_code: Option<String>,
+    /// Must be a 2 letter country short-name code (ISO 3166). Does not accept US, AS, PR, FM, GU,
+    /// MH, MP, PW, or VI. For these addresses, please use the US verification API. Also does not
+    /// accept PS, which is not currently supported.
+    pub country: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InternationalAddressComponents {
     pub primary_object: String,
     pub street_name: String,
@@ -437,6 +454,96 @@ pub struct Postcard {
     object: object::Postcard,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct NewPostcard {
+    pub description: Option<String>,
+    pub to: SendAddress,
+    pub from: Option<SendAddress>,
+    #[serde(skip_serializing_if = "FileInput::is_file")]
+    pub front: FileInput,
+    #[serde(skip_serializing_if = "FileInput::is_file")]
+    pub back: FileInput,
+    pub merge_variables: Option<serde_json::Value>,
+    pub size: Option<PostcardSize>,
+    pub mail_type: Option<MailType>,
+    pub send_date: Option<DateTime<Utc>>,
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ListPostcardOptions {
+    //     An integer that designates how many results to return. Defaults to 10 and must be no more than 100.
+    pub limit: Option<i32>,
+    //     A reference to a list entry used for paginating to the previous set of entries. This field is pre-populated in the previous_url field in the return response.
+    pub after: Option<String>,
+    //     A reference to a list entry used for paginating to the next set of entries. This field is pre-populated in the next_url field in the return response.
+    pub before: Option<String>,
+    //     Request that the response include the total count by specifying include[]=total_count.
+    pub include: Option<Vec<ListIncludeOptions>>,
+    //     Filter by metadata key-value pair, e.g. metadata[customer_id]=987654.
+    pub metadata: Option<BTreeMap<String, String>>,
+    //     Filter by ISO-8601 date or datetime, e.g. { gt: '2012-01-01', lt: '2012-01-31T12:34:56Z' } where gt is ›, lt is ‹, gte is ≥, and lte is ≤.
+    pub date_created: Option<DateFilter>,
+    //    The postcard sizes to be returned. Must be a non-empty string array of valid sizes. Acceptable values are 4x6, 6x9, and 6x11.
+    pub size: Option<PostcardSize>,
+    //Set scheduled to true to only return orders (past or future) where send_date is greater than date_created. Set scheduled to false to only return orders where send_date is equal to date_created.
+    pub scheduled: Option<bool>,
+    // Filter by ISO-8601 date or datetime, e.g. { gt: '2012-01-01', lt: '2012-01-31T12:34:56Z' } where gt is ›, lt is ‹, gte is ≥, and lte is ≤.
+    pub send_date: Option<DateFilter>,
+    pub mail_type: Option<MailType>,
+    // Sorts postcards in a desired order. sort_by accepts an object with the key being either date_created or send_date and the value being either asc or desc.
+    pub sort_by: Option<SortBy>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SortBy {
+    DateCreated(Order),
+    SendDate(Order),
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Order {
+    Asc,
+    Desc,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
+pub enum SendAddress {
+    AddressId(String),
+    Components(SendAddressComponents),
+}
+
+impl Into<SendAddress> for String {
+    fn into(self) -> SendAddress {
+        SendAddress::AddressId(self)
+    }
+}
+
+impl Into<SendAddress> for &str {
+    fn into(self) -> SendAddress {
+        SendAddress::AddressId(self.to_owned())
+    }
+}
+
+impl Into<SendAddress> for SendAddressComponents {
+    fn into(self) -> SendAddress {
+        SendAddress::Components(self)
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SendAddressComponents {
+    pub name: String,
+    pub address_line_1: String,
+    pub address_line_2: Option<String>,
+    pub address_city: String,
+    pub address_state: String,
+    pub address_zip: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Letter {
     pub id: String,
@@ -466,6 +573,50 @@ pub struct Letter {
     pub send_date: DateTime<Utc>,
     pub deleted: bool,
     object: object::Letter,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct NewLetter {
+    pub description: Option<String>,
+    pub to: SendAddress,
+    pub from: SendAddress,
+    pub color: bool,
+    #[serde(skip_serializing_if = "FileInput::is_file")]
+    pub file: FileInput,
+    pub merge_variables: Option<serde_json::Value>,
+    pub double_sided: Option<bool>,
+    pub address_placement: Option<LetterAddressPlacement>,
+    pub return_envelope: Option<bool>,
+    pub custom_envelope: Option<String>,
+    pub mail_type: Option<MailType>,
+    pub extra_service: Option<ExtraService>,
+    pub send_date: Option<DateTime<Utc>>,
+    pub perforated_page: Option<u32>,
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ListLetterOptions {
+    //     An integer that designates how many results to return. Defaults to 10 and must be no more than 100.
+    pub limit: Option<i32>,
+    //     A reference to a list entry used for paginating to the previous set of entries. This field is pre-populated in the previous_url field in the return response.
+    pub after: Option<String>,
+    //     A reference to a list entry used for paginating to the next set of entries. This field is pre-populated in the next_url field in the return response.
+    pub before: Option<String>,
+    //     Request that the response include the total count by specifying include[]=total_count.
+    pub include: Option<Vec<ListIncludeOptions>>,
+    //     Filter by metadata key-value pair, e.g. metadata[customer_id]=987654.
+    pub metadata: Option<BTreeMap<String, String>>,
+    //     Filter by ISO-8601 date or datetime, e.g. { gt: '2012-01-01', lt: '2012-01-31T12:34:56Z' } where gt is ›, lt is ‹, gte is ≥, and lte is ≤.
+    pub date_created: Option<DateFilter>,
+    //Set scheduled to true to only return orders (past or future) where send_date is greater than date_created. Set scheduled to false to only return orders where send_date is equal to date_created.
+    pub scheduled: Option<bool>,
+    // Filter by ISO-8601 date or datetime, e.g. { gt: '2012-01-01', lt: '2012-01-31T12:34:56Z' } where gt is ›, lt is ‹, gte is ≥, and lte is ≤.
+    pub send_date: Option<DateFilter>,
+    pub mail_type: Option<MailType>,
+    pub color: Option<bool>,
+    // Sorts postcards in a desired order. sort_by accepts an object with the key being either date_created or send_date and the value being either asc or desc.
+    pub sort_by: Option<SortBy>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -712,13 +863,13 @@ pub struct ListAddressesOptions {
     limit: Option<u32>,
     after: Option<String>,
     before: Option<String>,
-    include: Option<Vec<ListAddressesIncludeOptions>>,
+    include: Option<Vec<ListIncludeOptions>>,
     metadata: Option<BTreeMap<String, String>>,
-    date_created: Option<DateFilter>
+    date_created: Option<DateFilter>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize)]
-pub enum ListAddressesIncludeOptions {
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum ListIncludeOptions {
     TotalCount,
 }
 
@@ -739,10 +890,46 @@ pub struct DateFilter {
     pub lte: Option<DateTime<Utc>>,
 }
 
-impl fmt::Display for ListAddressesIncludeOptions {
+impl fmt::Display for ListIncludeOptions {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            ListAddressesIncludeOptions::TotalCount => write!(f, "total_count"),
+            ListIncludeOptions::TotalCount => write!(f, "total_count"),
+        }
+    }
+}
+
+// TODO this should handle AsyncRead or w/e
+#[derive(Debug, Clone)]
+pub enum FileInput {
+    TemplateId(String),
+    Url(String),
+    Html(String),
+    File { filename: String, data: Vec<u8> },
+}
+
+impl FileInput {
+    pub fn is_file(&self) -> bool {
+        match self {
+            FileInput::File { .. } => true,
+            _ => false,
+        }
+    }
+}
+
+impl Serialize for FileInput {
+    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            FileInput::TemplateId(s) | FileInput::Url(s) | FileInput::Html(s) => {
+                String::serialize(s, serializer)
+            }
+            FileInput::File { .. } => {
+                return Err(S::Error::custom(
+                    "BUG! field must be skipped if variant is File",
+                ))
+            }
         }
     }
 }

@@ -7,11 +7,21 @@ pub struct Error {
     idempotency_key: Option<String>,
 }
 
+impl Error {
+    pub fn bad_request<S: Into<String>>(msg: S) -> Error {
+        Error {
+            kind: ErrorKind::BadRequest(msg.into()),
+            idempotency_key: None
+        }
+    }
+}
+
 #[derive(Debug)]
 enum ErrorKind {
     Lob(LobError),
     Http(reqwest::Error),
     Serde(serde_json::Error),
+    BadRequest(String),
 }
 
 impl std::error::Error for Error {
@@ -24,6 +34,7 @@ impl fmt::Display for Error {
             ErrorKind::Lob(LobError { message, status_code }) => write!(f, "Lob error - status_code: {}, message: {}", message, status_code),
             ErrorKind::Http(err) => write!(f, "Lob error (reqwest) - {}", err),
             ErrorKind::Serde(err) => write!(f, "Lob error (serde) - {}", err),
+            ErrorKind::BadRequest(msg) => write!(f, "Lob error (bad request) - {}", msg),
         }
     }
 }
