@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use serde::export::Formatter;
 use std::collections::BTreeMap;
+use std::net::IpAddr;
 
 pub mod object {
     macro_rules! object_name {
@@ -92,17 +93,71 @@ pub struct NewAddress {
     pub metadata: serde_json::Value,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsVerification {
     pub id: String,
-    pub recipient: String,
+    #[serde(with = "none_as_empty_string")]
+    pub recipient: Option<String>,
     pub primary_line: String,
+    #[serde(with = "none_as_empty_string")]
     pub secondary_line: Option<String>,
+    #[serde(with = "none_as_empty_string")]
     pub urbanization: Option<String>,
     pub last_line: String,
     pub deliverability: Deliverability,
     pub components: VerificationComponents,
     pub deliverability_analysis: DeliverabilityAnalysis,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerifyAddressOptions {
+    case: Option<Case>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Case {
+    Upper,
+    Lower,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddressVerificationComponents {
+    pub recipient: Option<String>,
+    pub primary_line: String,
+    pub secondary_line: Option<String>,
+    pub urbanization: Option<String>,
+    pub city: Option<String>,
+    pub state: Option<String>,
+    pub zip_code: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum AddressVerificationInput {
+    Flat(String),
+    Components(AddressVerificationComponents)
+}
+
+pub trait VerifyAddress {
+    fn into_input(self) -> AddressVerificationInput;
+}
+
+impl VerifyAddress for AddressVerificationComponents {
+    fn into_input(self) -> AddressVerificationInput {
+        AddressVerificationInput::Components(self)
+    }
+}
+
+impl VerifyAddress for String {
+    fn into_input(self) -> AddressVerificationInput {
+        AddressVerificationInput::Flat(self)
+    }
+}
+
+impl VerifyAddress for &str {
+    fn into_input(self) -> AddressVerificationInput {
+        AddressVerificationInput::Flat(self.to_owned())
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -277,6 +332,33 @@ pub struct UsAutocompletion {
     pub id: String,
     pub suggestions: Vec<AutocompleteSuggestion>,
     object: object::UsAutocompletion,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AutocompleteAddressOptions {
+    pub city: Option<String>,
+    pub state: Option<String>,
+    pub geo_ip_sort: Option<IpAddr>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub (crate) struct AutocompleteAddressOptionsQuery {
+    pub address_prefix: String,
+    pub city: Option<String>,
+    pub state: Option<String>,
+    pub geo_ip_sort: Option<bool>,
+}
+
+impl AutocompleteAddressOptionsQuery {
+    pub fn new<S: Into<String>>(address_prefix: S, options: Option<AutocompleteAddressOptions>) -> Self {
+        let options = options.unwrap_or_default();
+        AutocompleteAddressOptionsQuery {
+            address_prefix: address_prefix.into(),
+            city: options.city,
+            state: options.state,
+            geo_ip_sort: options.geo_ip_sort.map(|_| true),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

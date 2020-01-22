@@ -23,7 +23,7 @@ impl Client {
     }
 
     pub async fn create_address(&self, address: &NewAddress) -> Result<Address, Error> {
-        self.post("https://api.lob.com/v1/addresses", &address).await
+        self.post("https://api.lob.com/v1/addresses", &NO_QUERY, &address).await
     }
 
     pub async fn get_address(&self, id: &str) -> Result<Address, Error> {
@@ -38,8 +38,31 @@ impl Client {
         self.get("https://api.lob.com/v1/addresses/", &options).await
     }
 
-    async fn post<B: Serialize, R: DeserializeOwned + 'static>(&self, url: &str, body: &B) -> Result<R, Error> {
-        self.make_request(self.inner.post(url).form(body)).await
+    pub async fn verify_us_address<A: VerifyAddress>(&self, address: A, options: Option<VerifyAddressOptions>) -> Result<UsVerification, Error> {
+        match address.into_input() {
+            AddressVerificationInput::Flat(address) => {
+                self.post("https://api.lob.com/v1/us_verifications", &options, &("address", address)).await
+            },
+            AddressVerificationInput::Components(components) => {
+                self.post("https://api.lob.com/v1/us_verifications", &options, &components).await
+            }
+        }
+    }
+
+    pub async fn autocomplete_address<S: Into<String>>(&self, address_prefix: S, options: Option<AutocompleteAddressOptions>) -> Result<UsAutocompletion, Error> {
+        let mut request = self.inner.post("https://api.lob.com/v1/us_autocompletions");
+        let geo_ip = options.as_ref()
+            .and_then(|o| o.geo_ip_sort.as_ref())
+            .map(|ip| ip.to_string());
+        if let Some(geo_ip) = geo_ip {
+            request = request.header("X-Forwarded-For", geo_ip);
+        }
+        let options = AutocompleteAddressOptionsQuery::new(address_prefix, options);
+        self.make_request(request.query(&options)).await
+    }
+
+    async fn post<Q: Serialize, B: Serialize, R: DeserializeOwned + 'static>(&self, url: &str, query: &Option<Q>, body: &B) -> Result<R, Error> {
+        self.make_request(self.inner.post(url).query(query).form(body)).await
     }
 
     async fn get<Q: Serialize, R: DeserializeOwned + 'static>(&self, url: &str, query: &Q) -> Result<R, Error> {
