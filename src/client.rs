@@ -112,7 +112,6 @@ impl Client {
         .await
     }
 
-    //TODO support files for front and back;
     pub async fn create_postcard(&self, mut postcard: NewPostcard) -> Result<Postcard, Error> {
         let mut request = self.inner.post("https://api.lob.com/v1/postcards");
         if let FileInput::File { filename, data } = &mut postcard.front {
@@ -301,8 +300,6 @@ impl Client {
         self.make_request(self.inner.delete(url)).await
     }
 
-    //TODO identify and fix "hidden type for `impl Trait` captures lifetime that does not appear in bounds"
-    //     error that appears when taking `body` by reference
     async fn make_request<R: DeserializeOwned>(
         &self,
         request: reqwest::RequestBuilder,

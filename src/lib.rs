@@ -1,11 +1,6 @@
-pub mod client;
-pub mod error;
+mod client;
+mod error;
 pub mod model;
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+pub use self::client::{Client, API_VERSION};
+pub use self::error::Error;

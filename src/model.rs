@@ -975,7 +975,7 @@ impl fmt::Display for ListIncludeOptions {
     }
 }
 
-// TODO this should handle AsyncRead or w/e
+// TODO should this should handle files via AsyncRead or w/e?
 #[derive(Debug, Clone)]
 pub enum FileInput {
     TemplateId(String),
