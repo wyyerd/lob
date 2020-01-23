@@ -1,11 +1,12 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::export::Formatter;
-use serde::{ser::Error, Deserialize, Serialize, Serializer};
+use serde::{ser::Error, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::net::IpAddr;
+use std::str::FromStr;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Address {
     pub id: String,
     pub description: Option<String>,
@@ -22,7 +23,7 @@ pub struct Address {
     pub metadata: BTreeMap<String, String>,
     pub date_created: DateTime<Utc>,
     pub date_modified: DateTime<Utc>,
-    pub deleted: bool,
+    pub deleted: Option<bool>,
     object: object::Address,
 }
 
@@ -39,7 +40,7 @@ pub struct NewAddress {
     pub address_state: Option<String>,
     pub address_zip: Option<String>,
     pub address_country: Option<String>,
-    pub metadata: BTreeMap<String, String>,
+    pub metadata: Option<BTreeMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,7 +61,7 @@ pub struct UsVerification {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerifyAddressOptions {
-    case: Option<Case>,
+    pub case: Option<Case>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -158,7 +159,8 @@ pub struct VerificationComponents {
     pub county: String,
     pub county_fips: String,
     pub carrier_route: String,
-    pub carrier_route_type: CarrierRouteType,
+    #[serde(with = "none_as_empty_string")]
+    pub carrier_route_type: Option<CarrierRouteType>,
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
 }
@@ -166,22 +168,23 @@ pub struct VerificationComponents {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeliverabilityAnalysis {
     /// `None` indicates undeliverable address
-    dpv_confirmation: Option<DpvConfirmation>,
-    #[serde(with = "yn_empty")]
-    dpv_cmra: Option<bool>,
-    #[serde(with = "yn_empty")]
-    dpv_vacant: Option<bool>,
-    #[serde(with = "yn_empty")]
-    dpv_active: Option<bool>,
-    dpv_footnotes: Vec<DpvCode>,
-    ews_match: bool,
-    #[serde(with = "yn_empty")]
-    lacs_indicator: Option<bool>,
     #[serde(with = "none_as_empty_string")]
-    lacs_return_code: Option<LacsReturnCode>,
+    pub dpv_confirmation: Option<DpvConfirmation>,
+    #[serde(with = "yn_empty")]
+    pub dpv_cmra: Option<bool>,
+    #[serde(with = "yn_empty")]
+    pub dpv_vacant: Option<bool>,
+    #[serde(with = "yn_empty")]
+    pub dpv_active: Option<bool>,
+    pub dpv_footnotes: Vec<DpvCode>,
+    pub ews_match: bool,
+    #[serde(with = "yn_empty")]
+    pub lacs_indicator: Option<bool>,
     #[serde(with = "none_as_empty_string")]
-    suite_return_code: Option<SuiteReturnCode>,
-    object: object::UsVerification,
+    pub lacs_return_code: Option<LacsReturnCode>,
+    #[serde(with = "none_as_empty_string")]
+    pub suite_return_code: Option<SuiteReturnCode>,
+    //    object: object::UsVerification,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -221,7 +224,6 @@ pub enum CarrierRouteType {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum DpvConfirmation {
     /// The address is deliverable by the USPS.
     Y,
@@ -237,7 +239,6 @@ pub enum DpvConfirmation {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum DpvCode {
     /// Some parts of the address (such as the street and ZIP code) are valid.
     AA,
@@ -272,7 +273,6 @@ pub enum DpvCode {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum LacsReturnCode {
     /// A new address was produced because a match was found in LACSLink.
     A,
@@ -288,7 +288,6 @@ pub enum LacsReturnCode {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum SuiteReturnCode {
     A, // A SuiteLink match was found and secondary information was added.
     #[serde(rename = "00")]
@@ -330,6 +329,11 @@ impl AutocompleteAddressOptionsQuery {
             geo_ip_sort: options.geo_ip_sort.map(|_| true),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct UsZipLookupBody {
+    pub zip_code: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -389,14 +393,14 @@ pub struct InternationalVerificationInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InternationalAddressComponents {
-    pub primary_object: String,
-    pub street_name: String,
-    pub city: String,
-    pub state: String,
-    pub postal_code: String,
+    pub primary_object: Option<String>,
+    pub street_name: Option<String>,
+    pub city: Option<String>,
+    pub state: Option<String>,
+    pub postal_code: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Postcard {
     pub id: String,
     pub description: Option<String>,
@@ -410,15 +414,15 @@ pub struct Postcard {
     pub back_template_version_id: Option<String>,
     pub carrier: String,
     pub tracking_events: Vec<TrackingEvent>,
-    pub thumbnails: Vec<String>,
+    pub thumbnails: Vec<Thumbnails>,
     pub merge_variables: Option<BTreeMap<String, String>>,
     pub size: PostcardSize,
     pub mail_type: MailType,
-    pub expected_delivery_date: DateTime<Utc>,
+    pub expected_delivery_date: NaiveDate,
     pub date_created: DateTime<Utc>,
     pub date_modified: DateTime<Utc>,
     pub send_date: DateTime<Utc>,
-    pub deleted: bool,
+    pub deleted: Option<bool>,
     object: object::Postcard,
 }
 
@@ -438,7 +442,7 @@ pub struct NewPostcard {
     pub metadata: Option<BTreeMap<String, String>>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Default)]
 pub struct ListPostcardOptions {
     /// An integer that designates how many results to return. Defaults to 10 and must be no more than 100.
     pub limit: Option<i32>,
@@ -461,6 +465,13 @@ pub struct ListPostcardOptions {
     pub mail_type: Option<MailType>,
     /// Sorts postcards in a desired order. sort_by accepts an object with the key being either date_created or send_date and the value being either asc or desc.
     pub sort_by: Option<SortBy>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Thumbnails {
+    pub large: String,
+    pub medium: String,
+    pub small: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -505,14 +516,14 @@ impl Into<SendAddress> for SendAddressComponents {
 #[derive(Debug, Clone, Serialize)]
 pub struct SendAddressComponents {
     pub name: String,
-    pub address_line_1: String,
-    pub address_line_2: Option<String>,
+    pub address_line1: String,
+    pub address_line2: Option<String>,
     pub address_city: String,
     pub address_state: String,
     pub address_zip: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Letter {
     pub id: String,
     pub description: Option<String>,
@@ -534,12 +545,12 @@ pub struct Letter {
     pub carrier: String,
     pub tracking_number: Option<String>,
     pub tracking_events: Vec<TrackingEvent>,
-    pub thumbnails: Vec<String>,
-    pub expected_delivery_date: DateTime<Utc>,
+    pub thumbnails: Vec<Thumbnails>,
+    pub expected_delivery_date: NaiveDate,
     pub date_created: DateTime<Utc>,
     pub date_modified: DateTime<Utc>,
     pub send_date: DateTime<Utc>,
-    pub deleted: bool,
+    pub deleted: Option<bool>,
     object: object::Letter,
 }
 
@@ -563,7 +574,7 @@ pub struct NewLetter {
     pub metadata: Option<BTreeMap<String, String>>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Default)]
 pub struct ListLetterOptions {
     /// An integer that designates how many results to return. Defaults to 10 and must be no more than 100.
     pub limit: Option<i32>,
@@ -587,14 +598,14 @@ pub struct ListLetterOptions {
     pub sort_by: Option<SortBy>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Check {
     pub id: String,
     pub description: Option<String>,
     pub metadata: BTreeMap<String, String>,
     pub check_number: i32,
     pub memo: Option<String>,
-    pub amount: f64, //TODO should we create a custom type for this? Or use a third-party crate (e.g. bigdecimal)?
+    pub amount: CheckAmount, //TODO should we use a third-party crate (e.g. bigdecimal)?
     pub message: Option<String>,
     pub url: String,
     pub check_bottom_template_id: Option<String>,
@@ -607,14 +618,14 @@ pub struct Check {
     pub carrier: String,
     pub tracking_number: Option<String>,
     pub tracking_events: Vec<TrackingEvent>,
-    pub thumbnails: Vec<String>,
+    pub thumbnails: Vec<Thumbnails>,
     pub merge_variables: Option<BTreeMap<String, String>>,
     pub expected_delivery_date: DateTime<Utc>,
     pub mail_type: MailType,
     pub date_created: DateTime<Utc>,
     pub date_modified: DateTime<Utc>,
     pub send_date: DateTime<Utc>,
-    pub deleted: bool,
+    pub deleted: Option<bool>,
     object: object::Check,
 }
 
@@ -624,12 +635,12 @@ pub struct NewCheck {
     pub to: SendAddress,
     pub from: SendAddress,
     pub bank_account: String,
-    pub amount: f64, //TODO should we create a custom type for this? Or use a third-party crate (e.g. bigdecimal)?
+    pub amount: CheckAmount, //TODO should we create a custom type for this? Or use a third-party crate (e.g. bigdecimal)?
     pub memo: Option<String>,
     pub check_number: Option<i32>,
     /// must be URL or File
-    #[serde(skip_serializing_if = "FileInput::is_file")]
-    pub logo: FileInput,
+    #[serde(skip_serializing_if = "FileInput::is_maybe_file")]
+    pub logo: Option<FileInput>,
     /// Either message or check_bottom, choose one. Max of 400 characters to be included at the bottom of the check page.
     pub message: Option<String>,
     /// Either message or check_bottom, choose one. The artwork to use on the bottom of the check page.
@@ -640,17 +651,17 @@ pub struct NewCheck {
     /// be rendered and trimmed to fit on a 8.5"x11" page. The check bottom will always be printed in
     /// black & white. You must follow template at https://s3-us-west-2.amazonaws.com/public.lob.com/assets/templates/check_bottom_template.pdf.
     /// See https://lob.com/docs#html-examples for HTML examples.
-    #[serde(skip_serializing_if = "FileInput::is_file")]
-    pub check_bottom: FileInput,
-    #[serde(skip_serializing_if = "FileInput::is_file")]
-    pub attachment: FileInput,
+    #[serde(skip_serializing_if = "FileInput::is_maybe_file")]
+    pub check_bottom: Option<FileInput>,
+    #[serde(skip_serializing_if = "FileInput::is_maybe_file")]
+    pub attachment: Option<FileInput>,
     /// Must be UspsFirstClass or UpsNextDayAir
-    pub mail_type: MailType,
-    pub send_date: DateTime<Utc>,
-    pub metadata: BTreeMap<String, String>,
+    pub mail_type: Option<MailType>,
+    pub send_date: Option<NaiveDate>,
+    pub metadata: Option<BTreeMap<String, String>>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Default)]
 pub struct ListCheckOptions {
     /// An integer that designates how many results to return. Defaults to 10 and must be no more than 100.
     pub limit: Option<i32>,
@@ -673,7 +684,7 @@ pub struct ListCheckOptions {
     pub sort_by: Option<SortBy>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BankAccount {
     pub id: String,
     pub description: Option<String>,
@@ -687,7 +698,7 @@ pub struct BankAccount {
     pub verified: bool,
     pub date_created: DateTime<Utc>,
     pub date_modified: DateTime<Utc>,
-    pub deleted: bool,
+    pub deleted: Option<bool>,
     object: object::BankAccount,
 }
 
@@ -703,22 +714,22 @@ pub struct NewBankAccount {
 
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct ListBankAccountOptions {
-    limit: Option<u32>,
-    after: Option<String>,
-    before: Option<String>,
-    include: Option<Vec<ListIncludeOptions>>,
-    metadata: Option<BTreeMap<String, String>>,
-    date_created: Option<DateFilter>,
+    pub limit: Option<u32>,
+    pub after: Option<String>,
+    pub before: Option<String>,
+    pub include: Option<Vec<ListIncludeOptions>>,
+    pub metadata: Option<BTreeMap<String, String>>,
+    pub date_created: Option<DateFilter>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CustomEnvelope {
     pub id: String,
     pub url: String,
     object: object::Envelope,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TrackingEvent {
     pub id: String,
     pub name: String,
@@ -883,7 +894,7 @@ pub enum Object {
     Delete(Delete),
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum PostcardSize {
     #[serde(rename = "4x6")]
     FourBySix,
@@ -893,7 +904,7 @@ pub enum PostcardSize {
     SixByEleven,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum MailType {
     UspsFirstClass,
@@ -901,14 +912,14 @@ pub enum MailType {
     UpsNextDayAir,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum LetterAddressPlacement {
     TopFirstPage,
     InsertBlankPage,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ExtraService {
     Certified,
@@ -916,7 +927,7 @@ pub enum ExtraService {
     Registered,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AccountType {
     Company,
@@ -930,6 +941,11 @@ pub struct Delete {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LobErrorResponse {
+    pub error: LobError,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LobError {
     pub message: String,
     pub status_code: i32,
@@ -937,12 +953,12 @@ pub struct LobError {
 
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct ListAddressesOptions {
-    limit: Option<u32>,
-    after: Option<String>,
-    before: Option<String>,
-    include: Option<Vec<ListIncludeOptions>>,
-    metadata: Option<BTreeMap<String, String>>,
-    date_created: Option<DateFilter>,
+    pub limit: Option<u32>,
+    pub after: Option<String>,
+    pub before: Option<String>,
+    pub include: Option<Vec<ListIncludeOptions>>,
+    pub metadata: Option<BTreeMap<String, String>>,
+    pub date_created: Option<DateFilter>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -952,11 +968,11 @@ pub enum ListIncludeOptions {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ListResponse<T> {
-    data: Vec<T>,
-    object: object::List,
-    next_url: Option<String>,
-    previous_url: Option<String>,
-    count: u32,
+    pub data: Vec<T>,
+    pub object: object::List,
+    pub next_url: Option<String>,
+    pub previous_url: Option<String>,
+    pub count: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -992,11 +1008,104 @@ impl FileInput {
         }
     }
 
+    pub fn is_maybe_file(file: &Option<FileInput>) -> bool {
+        file.as_ref().map(|f| f.is_file()).unwrap_or(false)
+    }
+
     pub fn is_url(&self) -> bool {
         match self {
             FileInput::Url { .. } => true,
             _ => false,
         }
+    }
+}
+
+// TODO determine whether to instead integrate with an existing decimal crate
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct CheckAmount(u64);
+
+impl CheckAmount {
+    pub fn new(dollars: u64, cents: u64) -> CheckAmount {
+        CheckAmount(dollars * 100 + cents)
+    }
+
+    pub fn cents(cents: u64) -> CheckAmount {
+        CheckAmount(cents)
+    }
+
+    pub fn to_dollars_and_cents(&self) -> (u64, u64) {
+        (self.0 / 100, self.0 % 100)
+    }
+
+    pub fn to_cents(&self) -> u64 {
+        self.0
+    }
+}
+
+impl From<f64> for CheckAmount {
+    fn from(f: f64) -> Self {
+        CheckAmount((f * 100.0) as u64)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ParseMoneyError(String);
+impl std::error::Error for ParseMoneyError {}
+impl fmt::Display for ParseMoneyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl FromStr for CheckAmount {
+    type Err = ParseMoneyError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut split = s.split(".");
+        let dollars = split
+            .next()
+            .and_then(|d| u64::from_str(d).ok())
+            .ok_or_else(|| ParseMoneyError(format!("Unable to parse {} as money", s)))?;
+        let cents = split
+            .next()
+            .map(|c| {
+                u64::from_str(c)
+                    .map_err(|_| ParseMoneyError(format!("Unable to parse {} as money", s)))
+            })
+            .transpose()?
+            .unwrap_or(0);
+        Ok(CheckAmount::cents(dollars * 100 + cents))
+    }
+}
+
+impl fmt::Display for CheckAmount {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let (dollars, cents) = self.to_dollars_and_cents();
+        write!(f, "{}.{}", dollars, cents)
+    }
+}
+
+impl Serialize for CheckAmount {
+    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+    where
+        S: Serializer,
+    {
+        // TODO is there a better way to do this without the allocation?
+        let n: serde_json::Number = self.to_string().parse().unwrap();
+        n.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for CheckAmount {
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::Error;
+        let n = serde_json::Number::deserialize(deserializer)?;
+        n.to_string()
+            .parse()
+            .map_err(|e: ParseMoneyError| D::Error::custom(e.to_string()))
     }
 }
 
@@ -1021,7 +1130,7 @@ impl Serialize for FileInput {
 pub mod object {
     macro_rules! object_name {
         ($name:ident, $value:expr) => {
-            #[derive(Debug, Clone, Copy)]
+            #[derive(Debug, Clone, Copy, PartialEq, Eq)]
             pub struct $name;
 
             impl serde::Serialize for $name {

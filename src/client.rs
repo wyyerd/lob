@@ -23,21 +23,21 @@ impl Client {
         }
     }
 
-    pub async fn create_address(&self, address: &NewAddress) -> Result<Address, Error> {
+    pub async fn create_address(&self, address: NewAddress) -> Result<Address, Error> {
         self.post("https://api.lob.com/v1/addresses", &NO_QUERY, &address)
             .await
     }
 
     pub async fn get_address(&self, id: &str) -> Result<Address, Error> {
         self.get(
-            &format!("http://api.lob.com/v1/addresses/{}", id),
+            &format!("https://api.lob.com/v1/addresses/{}", id),
             &NO_QUERY,
         )
         .await
     }
 
     pub async fn delete_address(&self, id: &str) -> Result<Delete, Error> {
-        self.delete(&format!("http://api.lob.com/v1/addresses/{}", id))
+        self.delete(&format!("https://api.lob.com/v1/addresses/{}", id))
             .await
     }
 
@@ -88,14 +88,16 @@ impl Client {
             request = request.header("X-Forwarded-For", geo_ip);
         }
         let options = AutocompleteAddressOptionsQuery::new(address_prefix, options);
-        self.make_request(request.query(&options)).await
+        self.make_request(request.json(&options)).await
     }
 
     pub async fn us_zip_lookup<S: Into<String>>(&self, zip_code: S) -> Result<UsZipLookup, Error> {
         self.post(
             "https://api.lob.com/v1/us_zip_lookups",
             &NO_QUERY,
-            &("zip_code", zip_code.into()),
+            &UsZipLookupBody {
+                zip_code: zip_code.into(),
+            },
         )
         .await
     }
@@ -126,7 +128,7 @@ impl Client {
             request =
                 request.multipart(Form::new().part("back", Part::bytes(data).file_name(filename)));
         }
-        self.make_request(request.form(&postcard)).await
+        self.make_request(request.json(&postcard)).await
     }
 
     pub async fn get_postcard(&self, postcard_id: &str) -> Result<Postcard, Error> {
@@ -157,7 +159,7 @@ impl Client {
             request =
                 request.multipart(Form::new().part("file", Part::bytes(data).file_name(filename)));
         }
-        self.make_request(request.form(&letter)).await
+        self.make_request(request.json(&letter)).await
     }
 
     pub async fn get_letter(&self, letter_id: &str) -> Result<Letter, Error> {
@@ -181,29 +183,39 @@ impl Client {
     }
 
     pub async fn create_check(&self, mut check: NewCheck) -> Result<Check, Error> {
-        if !(check.logo.is_file() || check.logo.is_url()) {
-            return Err(Error::bad_request("check bottom must be `File` or `URL`"));
+        if let Some(logo) = &check.logo {
+            if !(logo.is_file() || logo.is_url()) {
+                return Err(Error::bad_request("check bottom must be `File` or `URL`"));
+            }
+        }
+        match (&check.message, &check.check_bottom) {
+            (Some(_), None) | (None, Some(_)) => {}
+            _ => {
+                return Err(Error::bad_request(
+                    "One, but not both of `check_bottom` and `message` must be set",
+                ))
+            }
         }
         let mut request = self.inner.post("https://api.lob.com/v1/checks");
-        if let FileInput::File { filename, data } = &mut check.logo {
+        if let Some(FileInput::File { filename, data }) = &mut check.logo {
             let filename = mem::take(filename);
             let data = mem::take(data);
             request =
                 request.multipart(Form::new().part("logo", Part::bytes(data).file_name(filename)));
         }
-        if let FileInput::File { filename, data } = &mut check.check_bottom {
+        if let Some(FileInput::File { filename, data }) = &mut check.check_bottom {
             let filename = mem::take(filename);
             let data = mem::take(data);
             request = request
                 .multipart(Form::new().part("check_bottom", Part::bytes(data).file_name(filename)));
         }
-        if let FileInput::File { filename, data } = &mut check.attachment {
+        if let Some(FileInput::File { filename, data }) = &mut check.attachment {
             let filename = mem::take(filename);
             let data = mem::take(data);
             request = request
                 .multipart(Form::new().part("attachment", Part::bytes(data).file_name(filename)));
         }
-        self.make_request(request.form(&check)).await
+        self.make_request(request.json(&check)).await
     }
 
     pub async fn get_check(&self, check_id: &str) -> Result<Check, Error> {
@@ -240,7 +252,7 @@ impl Client {
 
     pub async fn get_bank_account(&self, bank_account_id: &str) -> Result<BankAccount, Error> {
         self.get(
-            &format!("http://api.lob.com/v1/bank_accounts/{}", bank_account_id),
+            &format!("https://api.lob.com/v1/bank_accounts/{}", bank_account_id),
             &NO_QUERY,
         )
         .await
@@ -248,7 +260,7 @@ impl Client {
 
     pub async fn delete_bank_account(&self, bank_account_id: &str) -> Result<Delete, Error> {
         self.delete(&format!(
-            "http://api.lob.com/v1/bank_accounts/{}",
+            "https://api.lob.com/v1/bank_accounts/{}",
             bank_account_id
         ))
         .await
@@ -261,7 +273,7 @@ impl Client {
     ) -> Result<BankAccount, Error> {
         self.post(
             &format!(
-                "http://api.lob.com/v1/bank_accounts/{}/verify",
+                "https://api.lob.com/v1/bank_accounts/{}/verify",
                 bank_account_id
             ),
             &NO_QUERY,
@@ -284,16 +296,19 @@ impl Client {
         query: &Option<Q>,
         body: &B,
     ) -> Result<R, Error> {
-        self.make_request(self.inner.post(url).query(query).form(body))
+        let query = make_query_string(query)?;
+        self.make_request(self.inner.post(&format!("{}{}", url, query)).json(body))
             .await
     }
 
     async fn get<Q: Serialize, R: DeserializeOwned + 'static>(
         &self,
         url: &str,
-        query: &Q,
+        query: &Option<Q>,
     ) -> Result<R, Error> {
-        self.make_request(self.inner.get(url).query(query)).await
+        let query = make_query_string(query)?;
+        self.make_request(self.inner.get(&format!("{}{}", url, query)))
+            .await
     }
 
     async fn delete<R: DeserializeOwned + 'static>(&self, url: &str) -> Result<R, Error> {
@@ -313,8 +328,17 @@ impl Client {
             let response = response.json().await?;
             Ok(response)
         } else {
-            let error: LobError = response.json().await?;
+            let LobErrorResponse { error } = response.json().await?;
             Err(error.into())
         }
+    }
+}
+
+fn make_query_string<S: Serialize>(options: &Option<S>) -> Result<String, Error> {
+    if let Some(options) = options {
+        let s = serde_qs::to_string(&options)?;
+        Ok(format!("?{}", s))
+    } else {
+        Ok(String::new())
     }
 }
