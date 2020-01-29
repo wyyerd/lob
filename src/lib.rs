@@ -88,7 +88,7 @@ mod tests {
             // TODO verify w/ prod creds
             let completions = client()
                 .autocomplete_address(
-                    "10 suggestion",
+                    "1 s",
                     Some(AutocompleteAddressOptions {
                         city: Some("Boulder".into()),
                         state: Some("CO".into()),
