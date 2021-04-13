@@ -159,6 +159,7 @@ mod tests {
                         address_city: "Denver".to_string(),
                         address_state: "CO".to_string(),
                         address_zip: "80203".to_string(),
+                        address_country: None
                     }),
                     from: Some(SendAddress::AddressId(address.id)),
                     front: FileInput::Html(include_str!("../postcard_front.html").into()),
@@ -213,7 +214,8 @@ mod tests {
                 })
                 .await
                 .unwrap();
-            let letter = client
+            let key = rand_key();
+            let us_letter = client
                 .create_letter(NewLetter {
                     description: Some("another description!".into()),
                     to: SendAddress::Components(SendAddressComponents {
@@ -223,6 +225,37 @@ mod tests {
                         address_city: "Denver".to_string(),
                         address_state: "CO".to_string(),
                         address_zip: "80203".to_string(),
+                        address_country: None,
+                    }),
+                    from: SendAddress::AddressId(address.id.clone()),
+                    //                back: FileInput::File { filename: "postcard_back.png".into(), data: include_bytes!("../postcard_back.png").to_vec()},
+                    color: false,
+                    file: FileInput::Html(include_str!("../letter.html").into()),
+                    merge_variables: None,
+                    double_sided: None,
+                    address_placement: None,
+                    return_envelope: None,
+                    custom_envelope: None,
+                    mail_type: Some(MailType::UspsFirstClass),
+                    extra_service: None,
+                    send_date: None,
+                    perforated_page: None,
+                    metadata: Some(key.clone()),
+                })
+                .await
+                .unwrap();
+
+            let intl_letter = client
+                .create_letter(NewLetter {
+                    description: Some("another description!".into()),
+                    to: SendAddress::Components(SendAddressComponents {
+                        name: "Justin Trudeau".to_string(),
+                        address_line1: "65 ARCHER DR".to_string(),
+                        address_line2: None,
+                        address_city: "RED DEER".to_string(),
+                        address_state: "AB".to_string(),
+                        address_zip: "T4R3B2".to_string(),
+                        address_country: Some("CA".to_string()),
                     }),
                     from: SendAddress::AddressId(address.id),
                     //                back: FileInput::File { filename: "postcard_back.png".into(), data: include_bytes!("../postcard_back.png").to_vec()},
@@ -237,25 +270,26 @@ mod tests {
                     extra_service: None,
                     send_date: None,
                     perforated_page: None,
-                    metadata: Some(rand_key()),
+                    metadata: Some(key.clone()),
                 })
                 .await
                 .unwrap();
 
             let letters = client
                 .list_letters(Some(ListLetterOptions {
-                    metadata: Some(letter.metadata.clone()),
+                    metadata: Some(key),
                     ..ListLetterOptions::default()
                 }))
                 .await
                 .unwrap();
-            assert_eq!(letters.count, 1);
-            assert_eq!(&letters.data[0], &letter);
-            let delete = client.cancel_letter(&letter.id).await.unwrap();
+            assert_eq!(letters.count, 2);
+            assert!(letters.data.iter().any(|l| l == &us_letter));
+            assert!(letters.data.iter().any(|l| l == &intl_letter));
+            let delete = client.cancel_letter(&us_letter.id).await.unwrap();
             assert!(delete.deleted);
-            assert_eq!(&delete.id, &letter.id);
-            let canceled = client.get_letter(&letter.id).await.unwrap();
-            assert_eq!(&letter.id, &canceled.id);
+            assert_eq!(&delete.id, &us_letter.id);
+            let canceled = client.get_letter(&us_letter.id).await.unwrap();
+            assert_eq!(&us_letter.id, &canceled.id);
             assert_eq!(canceled.deleted, Some(true));
         })
     }
@@ -295,6 +329,7 @@ mod tests {
                         address_city: "Denver".to_string(),
                         address_state: "CO".to_string(),
                         address_zip: "80203".to_string(),
+                        address_country: None
                     }),
                     from: SendAddress::AddressId(address.id),
                     bank_account: "a_fake_bank_account".to_string(),

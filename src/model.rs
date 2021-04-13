@@ -521,6 +521,7 @@ pub struct SendAddressComponents {
     pub address_city: String,
     pub address_state: String,
     pub address_zip: String,
+    pub address_country: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
