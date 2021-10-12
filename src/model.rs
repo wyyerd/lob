@@ -110,11 +110,11 @@ impl VerifyAddress for &str {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Deliverability {
     Deliverable,
-    DeliverableUnnecesaryUnit,
+    DeliverableUnnecessaryUnit,
     DeliverableIncorrectUnit,
     DeliverableMissingUnit,
     Undeliverable,
@@ -187,7 +187,7 @@ pub struct DeliverabilityAnalysis {
     //    object: object::UsVerification,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ZipCodeType {
     Standard,
@@ -196,14 +196,14 @@ pub enum ZipCodeType {
     PoBox,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AddressType {
     Residential,
     Commercial,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RecordType {
     Street,
@@ -213,7 +213,7 @@ pub enum RecordType {
     RuralRoute,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CarrierRouteType {
     CityDelivery,
@@ -223,7 +223,7 @@ pub enum CarrierRouteType {
     GeneralDelivery,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DpvConfirmation {
     /// The address is deliverable by the USPS.
     Y,
@@ -238,7 +238,7 @@ pub enum DpvConfirmation {
     N,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DpvCode {
     /// Some parts of the address (such as the street and ZIP code) are valid.
     AA,
@@ -272,7 +272,7 @@ pub enum DpvCode {
     RR,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LacsReturnCode {
     /// A new address was produced because a match was found in LACSLink.
     A,
@@ -287,7 +287,7 @@ pub enum LacsReturnCode {
     _00,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SuiteReturnCode {
     A, // A SuiteLink match was found and secondary information was added.
     #[serde(rename = "00")]
