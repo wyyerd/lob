@@ -221,6 +221,7 @@ pub enum CarrierRouteType {
     HighwayContract,
     PoBox,
     GeneralDelivery,
+    Contract, // `Contract` doesn't appear in their documentation, but has been returned
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
