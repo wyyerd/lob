@@ -5,7 +5,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::mem;
 
-pub static API_VERSION: &'static str = "2019-06-01";
+pub static API_VERSION: &'static str = "2020-02-11";
 
 const NO_QUERY: Option<&'static str> = None;
 
@@ -33,7 +33,7 @@ impl Client {
             &format!("https://api.lob.com/v1/addresses/{}", id),
             &NO_QUERY,
         )
-        .await
+            .await
     }
 
     pub async fn delete_address(&self, id: &str) -> Result<Delete, Error> {
@@ -61,7 +61,7 @@ impl Client {
                     &options,
                     &("address", address),
                 )
-                .await
+                    .await
             }
             AddressVerificationInput::Components(components) => {
                 self.post(
@@ -69,7 +69,7 @@ impl Client {
                     &options,
                     &components,
                 )
-                .await
+                    .await
             }
         }
     }
@@ -80,6 +80,9 @@ impl Client {
         options: Option<AutocompleteAddressOptions>,
     ) -> Result<UsAutocompletion, Error> {
         let mut request = self.inner.post("https://api.lob.com/v1/us_autocompletions");
+        if let Some(true) = options.as_ref().and_then(|o| o.only_valid_addresses) {
+            request = request.query(&[("valid_addresses", "true")]);
+        }
         let geo_ip = options
             .as_ref()
             .and_then(|o| o.geo_ip_sort.as_ref())
@@ -99,7 +102,7 @@ impl Client {
                 zip_code: zip_code.into(),
             },
         )
-        .await
+            .await
     }
 
     pub async fn verify_intl_address(
@@ -111,7 +114,7 @@ impl Client {
             &NO_QUERY,
             address,
         )
-        .await
+            .await
     }
 
     pub async fn create_postcard(&self, mut postcard: NewPostcard) -> Result<Postcard, Error> {
@@ -136,7 +139,7 @@ impl Client {
             &format!("https://api.lob.com/v1/postcards/{}", postcard_id),
             &NO_QUERY,
         )
-        .await
+            .await
     }
 
     pub async fn cancel_postcard(&self, postcard_id: &str) -> Result<Delete, Error> {
@@ -167,7 +170,7 @@ impl Client {
             &format!("https://api.lob.com/v1/letters/{}", letter_id),
             &NO_QUERY,
         )
-        .await
+            .await
     }
 
     pub async fn cancel_letter(&self, letter_id: &str) -> Result<Delete, Error> {
@@ -193,7 +196,7 @@ impl Client {
             _ => {
                 return Err(Error::bad_request(
                     "One, but not both of `check_bottom` and `message` must be set",
-                ))
+                ));
             }
         }
         let mut request = self.inner.post("https://api.lob.com/v1/checks");
@@ -223,7 +226,7 @@ impl Client {
             &format!("https://api.lob.com/v1/checks/{}", check_id),
             &NO_QUERY,
         )
-        .await
+            .await
     }
 
     pub async fn cancel_check(&self, check_id: &str) -> Result<Delete, Error> {
@@ -247,7 +250,7 @@ impl Client {
             &NO_QUERY,
             &bank_account,
         )
-        .await
+            .await
     }
 
     pub async fn get_bank_account(&self, bank_account_id: &str) -> Result<BankAccount, Error> {
@@ -255,7 +258,7 @@ impl Client {
             &format!("https://api.lob.com/v1/bank_accounts/{}", bank_account_id),
             &NO_QUERY,
         )
-        .await
+            .await
     }
 
     pub async fn delete_bank_account(&self, bank_account_id: &str) -> Result<Delete, Error> {
@@ -263,7 +266,7 @@ impl Client {
             "https://api.lob.com/v1/bank_accounts/{}",
             bank_account_id
         ))
-        .await
+            .await
     }
 
     pub async fn verify_bank_account(
@@ -279,7 +282,7 @@ impl Client {
             &NO_QUERY,
             &("amounts", &amounts),
         )
-        .await
+            .await
     }
 
     pub async fn list_bank_accounts(

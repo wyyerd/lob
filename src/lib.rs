@@ -93,6 +93,7 @@ mod tests {
                         city: Some("Boulder".into()),
                         state: Some("CO".into()),
                         geo_ip_sort: Some("2607:a780:b00:1:55ee:4ce7:8819:b8d0".parse().unwrap()),
+                        only_valid_addresses: None
                     }),
                 )
                 .await
@@ -372,7 +373,7 @@ mod tests {
             let bank_account = client
                 .create_bank_account(&NewBankAccount {
                     description: None,
-                    routing_number: "123456789".to_string(),
+                    routing_number: "021000021".to_string(),
                     account_number: "12345678901234".to_string(),
                     account_type: AccountType::Company,
                     signatory: "me".to_string(),

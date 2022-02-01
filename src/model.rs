@@ -307,6 +307,8 @@ pub struct AutocompleteAddressOptions {
     pub city: Option<String>,
     pub state: Option<String>,
     pub geo_ip_sort: Option<IpAddr>,
+    // Requires explicit permission from Lob to use
+    pub only_valid_addresses: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]
