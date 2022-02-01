@@ -103,6 +103,28 @@ mod tests {
     }
 
     #[test]
+    fn autocomplete_only_valid_addresses() {
+        block_on(async {
+            // TODO verify w/ prod creds
+            let completions = client()
+                .autocomplete_address(
+                    "26232 N 121ST LN",
+                    Some(AutocompleteAddressOptions {
+                        city: None,
+                        state: None,
+                        geo_ip_sort: None,
+                        only_valid_addresses: Some(true)
+                    }),
+                )
+                .await
+                .unwrap();
+            let expected = completions.suggestions.iter().find(|s| &s.primary_line == "26232 N 121ST LN");
+            assert!(expected.is_some());
+            println!("{:?}", completions);
+        })
+    }
+
+    #[test]
     fn us_zip_lookup() {
         block_on(async {
             let _: UsZipLookup = client().us_zip_lookup("80303").await.unwrap();
