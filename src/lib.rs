@@ -93,10 +93,33 @@ mod tests {
                         city: Some("Boulder".into()),
                         state: Some("CO".into()),
                         geo_ip_sort: Some("2607:a780:b00:1:55ee:4ce7:8819:b8d0".parse().unwrap()),
+                        only_valid_addresses: None
                     }),
                 )
                 .await
                 .unwrap();
+            println!("{:?}", completions);
+        })
+    }
+
+    #[test]
+    fn autocomplete_only_valid_addresses() {
+        block_on(async {
+            // TODO verify w/ prod creds
+            let completions = client()
+                .autocomplete_address(
+                    "26232 N 121ST LN",
+                    Some(AutocompleteAddressOptions {
+                        city: None,
+                        state: None,
+                        geo_ip_sort: None,
+                        only_valid_addresses: Some(true)
+                    }),
+                )
+                .await
+                .unwrap();
+            let expected = completions.suggestions.iter().find(|s| &s.primary_line == "26232 N 121ST LN");
+            assert!(expected.is_some());
             println!("{:?}", completions);
         })
     }
@@ -372,7 +395,7 @@ mod tests {
             let bank_account = client
                 .create_bank_account(&NewBankAccount {
                     description: None,
-                    routing_number: "123456789".to_string(),
+                    routing_number: "021000021".to_string(),
                     account_number: "12345678901234".to_string(),
                     account_type: AccountType::Company,
                     signatory: "me".to_string(),
