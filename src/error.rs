@@ -12,6 +12,15 @@ impl Error {
             kind: ErrorKind::BadRequest(msg.into()),
         }
     }
+
+    // Do we expect retrying the same request to ever succeed
+    pub fn is_retryable(&self) -> bool {
+        match &self.kind {
+            ErrorKind::Lob(e) => !(e.status_code >= 400 && e.status_code < 500),
+            ErrorKind::Http(e) => e.status().map_or(true, |c| c.as_u16() != 400),
+            ErrorKind::Serde(_) | ErrorKind::BadRequest(_) => false,
+        }
+    }
 }
 
 #[derive(Debug)]
