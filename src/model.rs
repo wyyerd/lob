@@ -211,6 +211,7 @@ pub enum RecordType {
     Firm,
     PoBox,
     RuralRoute,
+    GeneralDelivery,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
