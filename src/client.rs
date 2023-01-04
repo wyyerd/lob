@@ -4,6 +4,7 @@ use reqwest::multipart::{Form, Part};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::mem;
+use serde_json::json;
 
 pub static API_VERSION: &'static str = "2020-02-11";
 
@@ -280,7 +281,7 @@ impl Client {
                 bank_account_id
             ),
             &NO_QUERY,
-            &("amounts", &amounts),
+            &json!({ "amounts": amounts }),
         )
             .await
     }

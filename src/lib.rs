@@ -1,16 +1,15 @@
+pub use self::client::{Client, API_VERSION};
+pub use self::error::Error;
+
 mod client;
 mod error;
 pub mod model;
-
-pub use self::client::{Client, API_VERSION};
-pub use self::error::Error;
 
 #[cfg(test)]
 mod tests {
     use crate::{model::*, Client};
     use chrono::{Duration, Utc};
-    use rand::distributions::Alphanumeric;
-    use rand::Rng;
+    use rand::distributions::{Alphanumeric, DistString};
     use std::collections::BTreeMap;
     use tokio_test::block_on;
 
@@ -103,9 +102,9 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // test keys cannot autocomplete addresses
     fn autocomplete_only_valid_addresses() {
         block_on(async {
-            // TODO verify w/ prod creds
             let completions = client()
                 .autocomplete_address(
                     "26232 N 121ST LN",
@@ -192,6 +191,7 @@ mod tests {
                     merge_variables: None,
                     size: Some(PostcardSize::FourBySix),
                     mail_type: Some(MailType::UspsFirstClass),
+                    use_type: Some(UseType::Operational),
                     send_date: None,
                     metadata: Some(rand_key()),
                 })
@@ -260,6 +260,7 @@ mod tests {
                     return_envelope: None,
                     custom_envelope: None,
                     mail_type: Some(MailType::UspsFirstClass),
+                    use_type: Some(UseType::Marketing),
                     extra_service: None,
                     send_date: None,
                     perforated_page: None,
@@ -290,6 +291,7 @@ mod tests {
                     return_envelope: None,
                     custom_envelope: None,
                     mail_type: Some(MailType::UspsFirstClass),
+                    use_type: None,
                     extra_service: None,
                     send_date: None,
                     perforated_page: None,
@@ -318,8 +320,8 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // requires a real bank account
     fn checks() {
-        // TODO test with a real bank account
         block_on(async {
             let now = Utc::now().naive_local().date();
             let next_month = now + Duration::days(30);
@@ -363,6 +365,7 @@ mod tests {
                     message: Some("a message!".into()),
                     check_bottom: None,
                     mail_type: None,
+                    use_type: Some(UseType::Operational),
                     send_date: Some(next_month),
                     metadata: Some(rand_key()),
                     attachment: None
@@ -431,7 +434,7 @@ mod tests {
             let bank_account = client
                 .create_bank_account(&NewBankAccount {
                     description: None,
-                    routing_number: "123456789".to_string(),
+                    routing_number: "021000021".to_string(),
                     account_number: "12345678901234".to_string(),
                     account_type: AccountType::Company,
                     signatory: "me".to_string(),
@@ -454,10 +457,7 @@ mod tests {
 
     fn rand_key() -> BTreeMap<String, String> {
         let mut map = BTreeMap::new();
-        let key = rand::thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(15)
-            .collect();
+        let key = Alphanumeric.sample_string(&mut rand::thread_rng(), 15);
         map.insert("key".to_owned(), key);
         map
     }

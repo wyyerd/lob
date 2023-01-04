@@ -442,6 +442,7 @@ pub struct NewPostcard {
     pub merge_variables: Option<BTreeMap<String, String>>,
     pub size: Option<PostcardSize>,
     pub mail_type: Option<MailType>,
+    pub use_type: Option<UseType>,
     pub send_date: Option<DateTime<Utc>>,
     pub metadata: Option<BTreeMap<String, String>>,
 }
@@ -573,6 +574,7 @@ pub struct NewLetter {
     pub return_envelope: Option<bool>,
     pub custom_envelope: Option<String>,
     pub mail_type: Option<MailType>,
+    pub use_type: Option<UseType>,
     pub extra_service: Option<ExtraService>,
     pub send_date: Option<DateTime<Utc>>,
     pub perforated_page: Option<u32>,
@@ -662,6 +664,7 @@ pub struct NewCheck {
     pub attachment: Option<FileInput>,
     /// Must be UspsFirstClass or UpsNextDayAir
     pub mail_type: Option<MailType>,
+    pub use_type: Option<UseType>,
     pub send_date: Option<NaiveDate>,
     pub metadata: Option<BTreeMap<String, String>>,
 }
@@ -915,6 +918,13 @@ pub enum MailType {
     UspsFirstClass,
     UspsStandard,
     UpsNextDayAir,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UseType {
+    Marketing,
+    Operational,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
