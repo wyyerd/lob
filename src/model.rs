@@ -248,6 +248,8 @@ pub enum DpvCode {
     A1,
     /// The address is deliverable.
     BB,
+    /// Address is a deliverable address after dropping the sub-building number from the input address. Sub-building is required.
+    C1,
     /// The address is deliverable by removing the provided secondary unit designator.
     CC,
     /// The address is deliverable but is missing a secondary information (apartment, unit, etc).
