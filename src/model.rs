@@ -274,6 +274,15 @@ pub enum DpvCode {
     R7,
     /// The address matched to a CMRA and private mailbox information is present.
     RR,
+    /// The address is an Informed Address, which the USPS has flagged for updated delivery data.
+    IA,
+    /// The address matched a PO Box street-style address.
+    PB,
+    /// The primary number matched after dropping a trailing letter.
+    TA,
+    /// A code Lob added after this list was written. Keeps new codes from failing the response.
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
